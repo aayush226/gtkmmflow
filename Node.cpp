@@ -2,49 +2,17 @@
 #include "Socket.h"
 #include "Edge.h"
 
-Node::Node(const std::string& title, double x, double y): title_(title), x_(x), y_(y), dragging_(false) {
-    set_column_spacing(10);
-    set_row_spacing(10);
-    /*auto socketl = std::make_shared<Socket>();
-    sockets.push_back(socketl);
-    socketl->set_halign(Gtk::Align::CENTER);
-    attach(*socketl, 0, 0, 1, 1);*/
-    //socketl->set_halign(Gtk::Align::START);
-    Gtk::Entry entry_;
-    entry_.set_text("Connect");
-    entry_.set_hexpand(true);
-    entry_.set_size_request(250,250);
-    entry_.set_halign(Gtk::Align::CENTER);
-    attach(entry_,1,0,4,1);
-    auto css_provider = Gtk::CssProvider::create();
-    auto style_context = get_style_context();
-
-    const char* css_style = R"(
-        grid {
-            
-            border: 2px solid #4A90E2;
-            padding: 15px;
-            
-            background-color: #ADD8E6; 
-        }
-        .active-node {
-            border-color: red; /* Example: Change border color to indicate active state */
-            /*border-width: 3px;*/ /* Optionally, make the border thicker */
-        }        
-    )";       
-    css_provider->load_from_data(css_style);
-    style_context->add_provider(css_provider, GTK_STYLE_PROVIDER_PRIORITY_USER);  
-}
-
-Node::Node(const std::string& title, double x, double y, int width, int height, bool spin, bool color, bool switch1_, bool check)
+Node::Node(const std::string& title, double x, double y, int width, int height, bool spin, bool color, bool switch1_, bool check, NodeType type)
     : title_(title), x_(x), y_(y), width(width), height(height), dragging_(false),
-       spin(spin), color(color), switch1_(switch1_), check(check)  {
-   
+       spin(spin), color(color), switch1_(switch1_), check(check), activated(false), type(type)  {
+    
     set_name("node");
     int i = 0;
     set_column_spacing(10);
     set_row_spacing(10);
-
+    setUpBackgroundColor();   
+    //set_column_homogeneous(true);
+    //set_tooltip_text("This is a node tooltip: " + title_);
     label_ = Gtk::make_managed<Gtk::Label>();
     label_->set_text(title);    
     label_->set_hexpand(true); 
@@ -55,17 +23,43 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
     delete_button_->set_has_frame(false);
     delete_button_->set_halign(Gtk::Align::CENTER);
     delete_button_->set_valign(Gtk::Align::CENTER);
+    delete_button_->set_name("my-delete-button");
+    tooltip_button_ = Gtk::make_managed<Gtk::Button>();
+    tooltip_button_->set_has_frame(false);
+    tooltip_button_->set_halign(Gtk::Align::CENTER);
+    tooltip_button_->set_valign(Gtk::Align::CENTER);
+    tooltip_button_->set_image_from_icon_name("help-about");
+    tooltip_button_->set_tooltip_text("This is a node tooltip: " + title_);
+    tooltip_button_->set_name("my-tooltip-button");
+    //tooltip_button_->set_sensitive(false);
+    /*duplicate_button_ = Gtk::make_managed<Gtk::Button>();
+    duplicate_button_->set_has_frame(false);
+    duplicate_button_->set_halign(Gtk::Align::CENTER);
+    duplicate_button_->set_valign(Gtk::Align::CENTER);
+    duplicate_button_->set_image_from_icon_name("edit-copy");*/
+    //attach(*label_,1,i,1,1);
+    //attach(*delete_button_, 2, i, 1, 1); 
+    //attach(*tooltip_button_,0,i,1,1);
+    //Gtk::Box layout_;
+    layout_ = Gtk::make_managed<Gtk::Box>();
+    layout_->set_orientation(Gtk::Orientation::HORIZONTAL);
     
-
-    attach(*label_,1,i,1,1);
-    attach(*delete_button_, 2, i, 1, 1); 
+    layout_->append(*tooltip_button_);
+    //layout_->append(*duplicate_button_);
+    layout_->append(*label_);
+    layout_->append(*delete_button_);    
+    layout_->set_spacing(5);
+    layout_->set_expand(true);
+    //layout_->set_name("box11");
+    //layout_->add_css_class("box1");
+    attach(*layout_, 0, i, 3, 1);
     i++;
     
     if(spin){
         auto socketl = std::make_shared<Socket>(0,i,Socket::Type::INPUT, Socket::Data::SPIN);
         sockets.push_back(socketl);
         attach(*socketl, 0, i, 1, 1);
-        socketl->set_halign(Gtk::Align::START); // Align to the left edge
+        socketl->set_halign(Gtk::Align::CENTER); // Align to the left edge
 
 
         spin_button_ = Gtk::make_managed<Gtk::SpinButton>();
@@ -89,7 +83,7 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
         
         i++;
         m4[spin_button_] = socketr;
-        sibling[socketr] = socketl;
+        sibling[socketr] = socketl;        
     }
    
     if(color){
@@ -97,9 +91,8 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
         auto socketl = std::make_shared<Socket>(0,i,Socket::Type::INPUT, Socket::Data::COLOR);
         sockets.push_back(socketl);
         attach(*socketl, 0, i, 1, 1);
-        socketl->set_halign(Gtk::Align::START); // Align to the left edge
+        socketl->set_halign(Gtk::Align::CENTER); // Align to the left edge
 
-        // Central widget (example: color_button_)
         color_button_ = Gtk::make_managed<Gtk::ColorButton>();
         color_button_->set_hexpand(true); // Allow it to expand
         //color_button_.set_halign(Gtk::Align::FILL); // Fill the space
@@ -111,7 +104,6 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
         attach(*socketr, 2, i, 1, 1);
         socketr->set_halign(Gtk::Align::CENTER); // Align to the right edge
 
-        // Ensure that all widgets in the row are vertically centered
         socketl->set_valign(Gtk::Align::CENTER);
         color_button_->set_valign(Gtk::Align::CENTER);
         socketr->set_valign(Gtk::Align::CENTER);
@@ -127,7 +119,7 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
         auto socketl = std::make_shared<Socket>(0,i,Socket::Type::INPUT, Socket::Data::SWITCH);
         sockets.push_back(socketl);
         attach(*socketl, 0, i, 1, 1);
-        socketl->set_halign(Gtk::Align::START); // Align to the left edge
+        socketl->set_halign(Gtk::Align::CENTER); // Align to the left edge
 
         switch_ = Gtk::make_managed<Gtk::Switch>();
         switch_->set_hexpand(true); // Allow it to expand
@@ -156,7 +148,7 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
         auto socketl = std::make_shared<Socket>(0,i,Socket::Type::INPUT, Socket::Data::CHECK);
         sockets.push_back(socketl);
         attach(*socketl, 0, i, 1, 1);
-        socketl->set_halign(Gtk::Align::START); // Align to the left edge
+        socketl->set_halign(Gtk::Align::CENTER); // Align to the left edge
 
         check_button_ = Gtk::make_managed<Gtk::CheckButton>();
         check_button_->set_hexpand(true); // Allow it to expand
@@ -177,8 +169,15 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
         m2[check_button_] = socketr;
         sibling[socketr] = socketl;
     }
-       
-    if(spin) spin_button_->signal_value_changed().connect(sigc::mem_fun(*this, &Node::on_spin_button_changed));
+
+
+
+    if(spin){
+        spin_button_->signal_value_changed().connect(sigc::mem_fun(*this, &Node::on_spin_button_changed));
+        //spin_button_->signal_focus_out_event().connect(sigc::mem_fun(*this, &Node::on_spin_button_focus_out));
+        spin_button_->set_can_focus(false);
+
+    }
     if(color) color_button_->signal_color_set().connect(sigc::mem_fun(*this, &Node::on_color_set));
     if(check) check_button_->signal_toggled().connect(sigc::mem_fun(*this, &Node::on_check_button_toggled));
     //switch_.signal_state_set().connect(sigc::mem_fun(*this, &Node::on_switch_state_changed));
@@ -186,44 +185,50 @@ Node::Node(const std::string& title, double x, double y, int width, int height, 
     //color_button2.signal_color_set().connect(sigc::mem_fun(*this, &Node::on_color_set));
 
     delete_button_->signal_clicked().connect(sigc::mem_fun(*this, &Node::on_delete_button_clicked));
-    
+    tooltip_button_->signal_clicked().connect([this]() {
+        stop_dragging();  // Show the popover when the button is clicked
+    });
 
     auto css_provider = Gtk::CssProvider::create();
     auto style_context = get_style_context();
 
     const char* css_style = R"(
-        grid {
-            
-            border: 2px solid #FFFFFF;
+             
+        grid {            
+            border: 2px solid #000000;
             padding: 15px;
             border-radius: 10px;
-            background-color: #545556; 
-            color: #FFFFFF;
+            background-color: #ffffff; 
+            color: #000000;
             font-size: 16px;
-        }
+        }          
         .active-node {
-            border-color: #E3242B; /* Example: Change border color to indicate active state */
+            border-color: #2c88d9; /* Example: Change border color to indicate active state */
             /*border-width: 3px;*/ /* Optionally, make the border thicker */
-        }         
-    )";
-    /*grid {
-            border-radius: 8px;
-            border: 2px solid #4A90E2;
-            padding: 15px;
-            
-            background-color: #ADD8E6; 
-        }
-        grid > label {
-            color: #4A90E2;
-        }*/
+        }             
         
-    css_provider->load_from_data(css_style);
-    style_context->add_provider(css_provider, GTK_STYLE_PROVIDER_PRIORITY_USER);  
+    )";
     
+    css_provider->load_from_data(css_style);
+    style_context->add_provider(css_provider, GTK_STYLE_PROVIDER_PRIORITY_USER);
+    //queue_draw();  
+
+    auto css_provider2 = Gtk::CssProvider::create();
+    css_provider2->load_from_data(R"(
+        box {
+            background-color: )" + background_color + R"(; /* Variable color */
+            color: white;
+            border: 1px solid #000000;
+            border-radius: 5px;
+            
+        }
+    )");
+    
+    auto style_context2 = layout_->get_style_context();   
+    style_context2->add_provider(css_provider2, GTK_STYLE_PROVIDER_PRIORITY_USER); 
 }
 
-void Node::on_delete_button_clicked() {
-    // Emit a signal or directly invoke a method to handle the deletion
+void Node::on_delete_button_clicked() {    
     stop_dragging();
     signal_delete_node.emit(shared_from_this());
     
@@ -237,6 +242,8 @@ bool Node::is_inside(double x, double y) const {
 }
 
 void Node::start_dragging(double x, double y) {
+    initial_x_ = x_;
+    initial_y_ = y_;
     dragging_ = true;
     drag_offset_x_ = x - x_;
     drag_offset_y_ = y - y_;
@@ -245,8 +252,7 @@ void Node::start_dragging(double x, double y) {
 void Node::drag_to(double x, double y) {
     if (dragging_) {
         x_ = x - drag_offset_x_;
-        y_ = y - drag_offset_y_;
-        //updateSockets();
+        y_ = y - drag_offset_y_;        
     }
 }
 
@@ -278,10 +284,17 @@ int Node::get_width(){
     return width;
 }
 
+double Node::get_initial_x(){
+    return initial_x_;
+}
+
+double Node::get_initial_y(){
+    return initial_y_;
+}
+
 void Node::on_color_set() {
     
-    stop_dragging(); // Make sure this method resets the dragging_ flag without side effects
-    //signal_value_changed.emit("color");
+    stop_dragging();
     auto socket = m1[color_button_];
     std::string colorValue = color_button_->get_rgba().to_string();
     signal_value_changed(colorValue, socket);
@@ -316,7 +329,14 @@ void Node::on_spin_button_changed(){
     signal_value_changed(std::to_string(spin_button_->get_value()), socket);
     //signal_value_changed.emit("spin");
 }
-
+/*void Node::on_spin_button_focus_out_event(){
+    
+    //auto* parent = get_parent();
+        
+    auto* parent = dynamic_cast<Gtk::Fixed*>(get_parent());
+    parent->grab_focus();
+    //signal_value_changed.emit("spin");
+}*/
 Gtk::Allocation Node::return_allocation(){
     return this->get_allocation();
 }
@@ -345,13 +365,17 @@ std::shared_ptr<Socket> Node::is_inside_socket(double x1, double y1){
 void Node::activate() {
     auto style_context = get_style_context();
     style_context->add_class("active-node");
+    activated = true;
 }
 
 void Node::deactivate() {
     auto style_context = get_style_context();
     style_context->remove_class("active-node");
+    activated = false;
 }
-
+bool Node::isActivated(){
+    return activated;
+}
 void Node::get_children_data(){
     std::cout << title_ << std::endl;
     /*if(spin){
@@ -440,7 +464,6 @@ void Node::socket_value_changed(std::shared_ptr<Socket> socket, std::string valu
             double x = 0.001;
             color.set_rgba(1.0, 0.647 + x, 0.0, 1.0); // RGBA for orange
 
-            // Assuming color_button_ is your Gtk::ColorButton
             color_button_->set_rgba(color);
             //color_button_->set_rgba()
             //on_color_set();
@@ -462,7 +485,6 @@ void Node::socket_value_changed(std::shared_ptr<Socket> socket, std::string valu
 
             if(current_state) check_button_->property_active().set_value(false);
             else check_button_->property_active().set_value(true);*/
-            // Optionally force a redraw if the state change doesn't visually update
             //check_button_->queue_draw();
             check_button_->set_active(!(check_button_->get_active()));
             //on_check_button_toggled();
@@ -470,4 +492,25 @@ void Node::socket_value_changed(std::shared_ptr<Socket> socket, std::string valu
     }
 
     
+}
+
+void Node::setUpBackgroundColor(){
+    if(type == Node::NodeType::A){
+        background_color = "#d3455b";
+    }
+    else if(type == Node::NodeType::B){
+        background_color = "#f7c325";
+    }
+    else if(type == Node::NodeType::C){
+        background_color = "#1aae9f";
+    }
+    else{
+        background_color = "#e8833a";
+    }
+}
+
+void Node::set_new_position(double x, double y){
+    x_ = x;
+    y_ = y;
+    //signal_position_changed.emit(shared_from_this(),x_,y_);
 }

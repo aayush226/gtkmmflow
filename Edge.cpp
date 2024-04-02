@@ -1,21 +1,11 @@
 #include "Edge.h"
 #include "Socket.h"
-/*Edge::Edge(double startX, double startY, double tempX, double tempY)
-    :startX(startX),startY(startY),tempEndX(tempX), tempEndY(tempY), isTemporary(true) {}*/
 
-/*Edge::Edge(double startX, double startY, double tempX, double tempY, bool perm)
-    :startX(startX),startY(startY),tempEndX(tempX), tempEndY(tempY), isTemporary(perm) {
-        permEndX = tempEndX;
-        permEndY = tempEndY;
-}*/
 Edge::Edge(std::shared_ptr<Socket> startSocket, std::shared_ptr<Node> startNode, double tempX, double tempY) 
     : startSocket(startSocket), startNode(startNode), tempEndX(tempEndX), tempEndY(tempEndY), isTemporary(true) {}
 
-//Edge::Edge(std::shared_ptr<Socket> endSocket) 
-   //: endSocket(endSocket), isTemporary(false) {}
 Edge::Edge(std::shared_ptr<Socket> startSocket, std::shared_ptr<Node> startNode, std::shared_ptr<Socket> endSocket, std::shared_ptr<Node> endNode)
     : startSocket(startSocket), startNode(startNode), endSocket(endSocket), endNode(endNode), isTemporary(false) {}
-
 
 void Edge::snapshot_vfunc(const Glib::RefPtr<Gtk::Snapshot>& snapshot, const Gdk::Rectangle& bounds) {
     
@@ -33,9 +23,8 @@ void Edge::snapshot_vfunc(const Glib::RefPtr<Gtk::Snapshot>& snapshot, const Gdk
         endX = endSocket->get_x() + endNode->get_allocation().get_x() + 17;
         endY = endSocket->get_y() + endNode->get_allocation().get_y() + 17;
         
-    }    
-
-    //std::cout << "Edge: " << startX << " " << startY << " " << endX << " " << endY << std::endl;
+    }
+    //Bezier Curve and Straight Line. To-do: Add logic to detect click near a Bezier Curve.
     /*double dx = endX - startX;
     double dy = endY - startY;
 
@@ -66,11 +55,11 @@ void Edge::snapshot_vfunc(const Glib::RefPtr<Gtk::Snapshot>& snapshot, const Gdk
     //cr->set_source_rgba(color.get_red(), color.get_green(), color.get_blue(), color.get_alpha());
 */
     if (isSelected) {
-        cr->set_line_width(4.0); // Make the line thicker
-        cr->set_source_rgba(1.0, 0.0, 0.0, 1.0); // Change color to red for highlighted edge
+        cr->set_line_width(2.5); // Make the line thicker
+        cr->set_source_rgba(0.173, 0.533, 0.851, 1.0); // Change color to red for highlighted edge
     } else {
-        cr->set_line_width(2.0); // Default line thickness
-        cr->set_source_rgba(1,1,1, 1.0); // Default color
+        cr->set_line_width(2.5); // Default line thickness
+        cr->set_source_rgba(0,0,0, 1.0); // Default color
     }
     //cr->set_source_rgba(0.576, 0.439, 0.859, 1.0);
     cr->move_to(startX, startY);
@@ -87,19 +76,22 @@ void Edge::updateTemporary(double x, double y) {
         tempEndY = y;
     }
 }
+
 std::shared_ptr<Socket> Edge::get_start_socket(){
     return startSocket;
 }
+
 std::shared_ptr<Socket> Edge::get_end_socket(){
     return endSocket;
 }
+
 std::shared_ptr<Node> Edge::get_start_node(){
     return startNode;
 }
+
 std::shared_ptr<Node> Edge::get_end_node(){
     return endNode;
 }
-//void temp_start(double x, double y);
 
 double Edge::get_x(){
     return startX;
@@ -107,7 +99,6 @@ double Edge::get_x(){
 double Edge::get_y(){
     return startY;
 }
-//void Edge::updatePerm()
 
 bool Edge::is_point_near(double x, double y){
     double startX = startSocket->get_x() + startNode->get_allocation().get_x() + 17;
@@ -118,7 +109,7 @@ bool Edge::is_point_near(double x, double y){
     /*if (!isTemporary) {
         
     } else {
-        // For a temporary edge, use the temporary end points
+        // For a temporary edge
         endX = tempEndX;
         endY = tempEndY;
     }*/
@@ -154,7 +145,7 @@ bool Edge::is_point_near(double x, double y){
     double dy = y - yy;
     double distance = sqrt(dx * dx + dy * dy);
 
-    const double NEAR_THRESHOLD = 5.0; // Adjust based on how "near" you want it to be
+    const double NEAR_THRESHOLD = 5.0; // how near the click must be
     return distance < NEAR_THRESHOLD;
 }
 
@@ -165,3 +156,14 @@ void Edge::setSelected(bool selected) {
 bool Edge::getSelected() const {
     return isSelected;
 }
+
+
+/*
+Colors for the edges: 
+#d3455b, #675af5, #f7c325, #1aae9f, #e8833a, 
+#d3455b -> (0.827, 0.271, 0.357, 1.0)
+#675af5 -> (0.404, 0.353, 0.961, 1.0)
+#f7c325 -> (0.969, 0.765, 0.145, 1.0)
+#1aae9f -> (0.102, 0.682, 0.623, 1.0)
+#e8833a -> (0.910, 0.514, 0.227, 1.0)
+*/
